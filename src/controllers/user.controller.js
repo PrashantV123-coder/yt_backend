@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -81,6 +81,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const user = await User.create({
         fullName, 
         avatar: avatar.url,
+        avatarPublicId: avatar.public_id,
         coverImage: coverImage?.url || "",
         email,
         password,
@@ -266,7 +267,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     return res
     .status(200)
     .json(
-        200, req.user, "Current user fetched successfully"
+        new ApiResponse(
+            200, req.user, "Current user fetched successfully"
+        )
     )
 });
 
@@ -277,7 +280,7 @@ const updateAccountDetails = asyncHandler( async (req, res) => {
         throw new ApiError(400, "All fields are required");
     };
 
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
@@ -302,21 +305,32 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Avatar file is missing");
     };
 
+    // 1. get user first
+    const existingUser = await User.findById(req.user._id);
+
+
     const avatar = await uploadOnCloudinary(avatarLocalPath);
 
     if(!avatar.url){
         throw new ApiError(400, "Error while uploading on avatar");
     };
 
+
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
-                avatar: avatar.url
+                avatar: avatar.url,
+                avatarPublicId: avatar.public_id
             }
         },
         {new: true}
     ).select("-password");
+
+    // 4. delete old avatar from cloudinary
+    if (existingUser.avatarPublicId) {
+        await deleteFromCloudinary(existingUser.avatarPublicId);
+    };
 
     return res
     .status(200)

@@ -28,6 +28,9 @@ const userSchema = new Schema({
         type: String,      // Cloudinary url
         required: true
     },
+    avatarPublicId: {
+        type: String       // Used for delete old image after avatar update
+    },
     coverImage: {
         type: String,      // Cloudinary url
     },
