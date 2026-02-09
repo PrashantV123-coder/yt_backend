@@ -165,8 +165,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined
+            $unset: {
+                refreshToken: 1 // this removes the field from the document
             }
         },
         {
@@ -447,7 +447,7 @@ const getUserChannelProfile = asyncHandler( async( req, res ) => {
 
 });
 
-const getWatchHistory = asyncHandler (async (req, res) => {
+const getWatchHistory = asyncHandler(async(req, res) => {
     const user = await User.aggregate([
         {
             $match: {
@@ -479,8 +479,8 @@ const getWatchHistory = asyncHandler (async (req, res) => {
                         }
                     },
                     {
-                        $addFields: {
-                            owner: {
+                        $addFields:{
+                            owner:{
                                 $first: "$owner"
                             }
                         }
@@ -490,16 +490,21 @@ const getWatchHistory = asyncHandler (async (req, res) => {
         }
     ]);
 
+    if (!user.length) {
+        return res.status(404).json(
+            new ApiResponse(404, [], "User not found or no watch history")
+        );
+    }
+
     return res
     .status(200)
     .json(
         new ApiResponse(
             200,
-            user[0].watchHistory,
+            user[0].watchHistory || [],
             "Watch history fetched successfully"
         )
-    );
-
+    )
 });
 
 export {
